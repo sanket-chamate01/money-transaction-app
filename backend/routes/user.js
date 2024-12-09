@@ -1,24 +1,29 @@
 const express = require("express")
 const { signUpValidation, signInValidation, updateValidation } = require("../types")
-const { UserTable } = require("../db")
+const { UserTable, AccountTable } = require("../db")
 const jwt = require("jsonwebtoken")
-const userRouter = express.Router()
 const JWT_SECRET = require("../config")
 const authMiddleware = require("../middleware")
+
+const userRouter = express.Router()
 
 userRouter.post("/signUp", async (req, res) => {
     const createUser = req.body
     const parseUser = signUpValidation.safeParse(createUser)
 
     if(!parseUser.success){
-        res.status(411).json({
+        return res.status(411).json({
             message: "Wrong Inputs"
         })
     }
-    const previousUser = UserTable.findOne({username: createUser.username})
 
-    if(previousUser._id){
-        res.status(411).json({
+    const previousUser = await UserTable.findOne({
+        username: createUser.username
+    })
+    
+
+    if(previousUser){
+        return res.status(411).json({
             message: "Email already taken"
         })
     }
@@ -29,9 +34,16 @@ userRouter.post("/signUp", async (req, res) => {
         lastname: createUser.lastname,
         password: createUser.password // don't store password as it is, hash the password , add salt i.e. password + random samething then hash then as store in db
     }) // or UserTable.create({createUser})
+
     const token = jwt.sign({
-        userId: user._id
+        userId: user._id,
     }, JWT_SECRET)
+
+    const userAccount = await AccountTable.create({
+        userId: user._id,
+        balance: 1 + Math.random() * 10000
+    })
+
     res.json({
         message: "User created successfully",
         token: token
@@ -43,7 +55,7 @@ userRouter.post("/signIn", async (req, res) => {
     const parseUser = signInValidation.safeParse(user)
 
     if(!parseUser.success){
-        res.status(411).json({
+        return res.status(411).json({
             message: "Wrong Inputs"
         })
     }
@@ -60,8 +72,10 @@ userRouter.post("/signIn", async (req, res) => {
         res.status(200).json({
             token: token
         })
+        return 
     }
-    res.json(411).json({
+
+    res.status(411).json({
         message: "Error while logging in"
     })
 })
@@ -71,7 +85,7 @@ userRouter.put("/update", authMiddleware, async (req, res) => {
     const parseUser = updateValidation.safeParse(previousUser)
 
     if(!parseUser.success){
-        res.status(411).json({
+        return res.status(411).json({
             message: "Wrong Inputs"
         })
     }
@@ -86,7 +100,7 @@ userRouter.put("/update", authMiddleware, async (req, res) => {
 })
 
 userRouter.get("/bulk", authMiddleware, async (req, res) => {
-    const usersQuery = req.query.filter
+    const usersQuery = req.query.filter || "" 
 
     const users = await UserTable.findAll({
         $or: [{

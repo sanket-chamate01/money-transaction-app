@@ -9,7 +9,7 @@ const signUpValidation = zod.object({
 
 const signInValidation = zod.object({
     username: zod.string().email(),
-    password: zod.email()
+    password: zod.string()
 })
 
 const updateValidation = zod.object({

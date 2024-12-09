@@ -1,22 +1,23 @@
 const express = require("express")
-const { userValidation } = require("../types")
+const { signUpValidation, signInValidation, updateValidation } = require("../types")
 const { UserTable } = require("../db")
 const jwt = require("jsonwebtoken")
 const userRouter = express.Router()
 const JWT_SECRET = require("../config")
+const authMiddleware = require("../middleware")
 
 userRouter.post("/signUp", async (req, res) => {
     const createUser = req.body
-    const parseUser = userValidation.safeParse(createUser)
+    const parseUser = signUpValidation.safeParse(createUser)
 
     if(!parseUser.success){
         res.status(411).json({
             message: "Wrong Inputs"
         })
     }
-    const previosUser = UserTable.findOne({username: createUser.username})
+    const previousUser = UserTable.findOne({username: createUser.username})
 
-    if(previosUser._id){
+    if(previousUser._id){
         res.status(411).json({
             message: "Email already taken"
         })
@@ -26,23 +27,84 @@ userRouter.post("/signUp", async (req, res) => {
         username: createUser.username,
         firstname: createUser.firstname,
         lastname: createUser.lastname,
-        password: createUser.password
+        password: createUser.password // don't store password as it is, hash the password , add salt i.e. password + random samething then hash then as store in db
     }) // or UserTable.create({createUser})
     const token = jwt.sign({
         userId: user._id
     }, JWT_SECRET)
     res.json({
         message: "User created successfully",
-        jsonToken: token
+        token: token
     })
 })
 
-userRouter.post("/signIn", (req, res) => {
-    
+userRouter.post("/signIn", async (req, res) => {
+    const user = req.body;
+    const parseUser = signInValidation.safeParse(user)
+
+    if(!parseUser.success){
+        res.status(411).json({
+            message: "Wrong Inputs"
+        })
+    }
+
+    const previousUser = await UserTable.findOne({
+        username: user.username,
+        password: user.password
+    })
+
+    if(previousUser){
+        const token = jwt.sign({
+            userId: user._id
+        }, JWT_SECRET)
+        res.status(200).json({
+            token: token
+        })
+    }
+    res.json(411).json({
+        message: "Error while logging in"
+    })
 })
 
-userRouter.post("/update", (req, res) => {
-    
+userRouter.put("/update", authMiddleware, async (req, res) => {
+    const previousUser = req.body;
+    const parseUser = updateValidation.safeParse(previousUser)
+
+    if(!parseUser.success){
+        res.status(411).json({
+            message: "Wrong Inputs"
+        })
+    }
+
+    await UserTable.updateOne(previousUser, {
+        _id: req.userId
+    })
+
+    res.json({
+        message: "User information updated successfully"
+    })
+})
+
+userRouter.get("/bulk", authMiddleware, async (req, res) => {
+    const usersQuery = req.query.filter
+
+    const users = await UserTable.findAll({
+        $or: [{
+            "firstname": usersQuery
+        }, {
+            "lastname": usersQuery
+        }]
+    })
+
+    res.json({
+        users: users.map(user => ({
+            username: user.username,
+            firstname: user.firstname,
+            lastname: user.lastname,
+            _id: user._id
+        }))
+    })
+
 })
 
 module.exports = userRouter

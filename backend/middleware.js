@@ -7,7 +7,7 @@ function authMiddleware(req, res, next){
 
     if(!tokenHeader || !tokenHeader.startsWith("Bearer ")){
         res.status(403).json({
-            message: "Cannot recognize logged user"
+            message: "Somthing is wrong"
         })
     }
 
@@ -15,15 +15,13 @@ function authMiddleware(req, res, next){
     const token = tokenArray[1]
 
     try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        console.log(decoded);
-        
+        const decoded = jwt.verify(token, JWT_SECRET);    
         req.userId = decoded.userId;
 
         next();
     } catch (err) {
         return res.status(403).json({
-            message: "Somthing is wrong"
+            message: "Cannot recognize logged user"
         });
     }
 }

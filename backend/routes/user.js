@@ -67,8 +67,9 @@ userRouter.post("/signIn", async (req, res) => {
 
     if(previousUser){
         const token = jwt.sign({
-            userId: user._id
+            userId: previousUser._id
         }, JWT_SECRET)
+        
         res.status(200).json({
             token: token
         })
@@ -89,9 +90,13 @@ userRouter.put("/update", authMiddleware, async (req, res) => {
             message: "Wrong Inputs"
         })
     }
+    console.log(previousUser);
+    console.log(req.userId)
 
-    await UserTable.updateOne(previousUser, {
+    await UserTable.updateOne({
         _id: req.userId
+    }, {
+        $set: previousUser
     })
 
     res.json({
@@ -102,11 +107,15 @@ userRouter.put("/update", authMiddleware, async (req, res) => {
 userRouter.get("/bulk", authMiddleware, async (req, res) => {
     const usersQuery = req.query.filter || "" 
 
-    const users = await UserTable.findAll({
+    const users = await UserTable.find({
         $or: [{
-            "firstname": usersQuery
+            "firstname": {
+                "$regex": usersQuery
+            }
         }, {
-            "lastname": usersQuery
+            "lastname": {
+                "$regex": usersQuery
+            }
         }]
     })
 

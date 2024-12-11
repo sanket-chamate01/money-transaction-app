@@ -107,17 +107,23 @@ userRouter.put("/update", authMiddleware, async (req, res) => {
 userRouter.get("/bulk", authMiddleware, async (req, res) => {
     const usersQuery = req.query.filter || "" 
 
+    const id = req.userId;
+
     const users = await UserTable.find({
-        $or: [{
-            "firstname": {
-                "$regex": usersQuery
+        $and: [
+            {
+                $or: [
+                    { "firstname": { "$regex": usersQuery } },
+                    { "lastname": { "$regex": usersQuery } }
+                ]
+            },
+            {
+                "_id": {
+                    "$ne": id 
+                }
             }
-        }, {
-            "lastname": {
-                "$regex": usersQuery
-            }
-        }]
-    })
+        ]
+    });
 
     res.json({
         users: users.map(user => ({
@@ -128,6 +134,15 @@ userRouter.get("/bulk", authMiddleware, async (req, res) => {
         }))
     })
 
+})
+
+userRouter.get("/currentUser", authMiddleware, async (req, res) => {
+    const data = await UserTable.findOne({
+        _id: req.userId
+    })
+    res.json({
+        user: data
+    })
 })
 
 module.exports = userRouter
